@@ -78,10 +78,21 @@ def convert_edgelist_to_json(csv_path, output_json_path):
 if __name__ == "__main__":
     # 以成都的数据作为示例转换
     base_dir = r"d:\Project\Model"
-    chengdu_csv = os.path.join(base_dir, "data", "B题数据", "Chengdu_Edgelist.csv")
-    chengdu_json = os.path.join(base_dir, "data", "B题数据", "Chengdu_Network.json")
+    data_dir = os.path.join(base_dir, "data", "B题数据")
+    output_dir = os.path.join(data_dir, "json_networks")
 
-    if os.path.exists(chengdu_csv):
-        convert_edgelist_to_json(chengdu_csv, chengdu_json)
-    else:
-        print("未找到指定的数据文件，请检查路径。")
+    # 创建存放 JSON 文件的输出文件夹
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    # 遍历 B题数据 文件夹下所有的 csv 文件
+    for filename in os.listdir(data_dir):
+        if filename.endswith("_Edgelist.csv"):
+            city_name = filename.split("_")[0]
+            csv_path = os.path.join(data_dir, filename)
+            json_filename = f"{city_name}_Network.json"
+            output_json_path = os.path.join(output_dir, json_filename)
+
+            convert_edgelist_to_json(csv_path, output_json_path)
+
+    print("所有城市的数据转换已完成！")
