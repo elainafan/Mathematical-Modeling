@@ -79,7 +79,7 @@ if __name__ == "__main__":
     # 以成都的数据作为示例转换
     base_dir = r"d:\Project\Model"
     data_dir = os.path.join(base_dir, "data", "B题数据")
-    output_dir = os.path.join(data_dir, "json_networks")
+    output_dir = os.path.join(base_dir, "data", "json_networks")
 
     # 创建存放 JSON 文件的输出文件夹
     if not os.path.exists(output_dir):

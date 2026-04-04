@@ -29,7 +29,9 @@ COLORS     = ['#2196F3', '#E91E63', '#4CAF50', '#FF9800',
 # ════════════════════════════════════════════════════════════
 # 计算各城市介数中心性（精确，非加权）
 # ════════════════════════════════════════════════════════════
-city_bc = {}
+city_bc      = {}   # city -> np.array of bc values（按节点顺序）
+city_bc_dict = {}   # city -> {node_id: bc_value}
+city_json    = {}   # city -> raw json data（用于坐标/度数）
 summary_rows = []
 
 for path, city in zip(JSON_FILES, CITIES):
@@ -53,7 +55,9 @@ for path, city in zip(JSON_FILES, CITIES):
     print(f'  完成，耗时 {elapsed:.1f}s', flush=True)
 
     vals = np.array(list(bc.values()))
-    city_bc[city] = vals
+    city_bc[city]      = vals
+    city_bc_dict[city] = bc
+    city_json[city]    = data
 
     summary_rows.append({
         '城市'    : city,
@@ -168,13 +172,60 @@ print('图3 已保存: betweenness_summary.png')
 
 
 # ════════════════════════════════════════════════════════════
-# 保存 Excel
+# 保存 Excel（汇总 + 幂律拟合 + 各城市节点明细）
 # ════════════════════════════════════════════════════════════
 excel_path = os.path.join(OUT_DIR, 'betweenness.xlsx')
 with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
+
+    # Sheet 1：汇总统计
     df_sum.to_excel(writer, sheet_name='汇总统计', index=False)
+
+    # Sheet 2：幂律拟合（CCDF 线性回归斜率）
     if fit_rows:
         pd.DataFrame(fit_rows).to_excel(writer, sheet_name='幂律拟合', index=False)
+
+    # Sheet 3：全城市节点明细（一张总表）
+    all_detail = []
+    for city in CITIES:
+        bc_dict = city_bc_dict[city]
+        data    = city_json[city]
+        bc_vals = np.array(list(bc_dict.values()))
+        # 按介数从大到小排名
+        sorted_ids = sorted(bc_dict, key=bc_dict.get, reverse=True)
+        rank_map   = {nid: r + 1 for r, nid in enumerate(sorted_ids)}
+        for node in data.values():
+            nid = node['id']
+            bv  = bc_dict.get(nid, 0.0)
+            all_detail.append({
+                '城市'    : city,
+                '节点ID'  : nid,
+                'X坐标'   : round(node['position'][0], 4),
+                'Y坐标'   : round(node['position'][1], 4),
+                '度数'    : node['degree'],
+                '介数中心性': round(bv, 8),
+                '城市内排名': rank_map[nid],
+            })
+    pd.DataFrame(all_detail).to_excel(writer, sheet_name='节点明细(全部)', index=False)
+
+    # Sheet 4~11：每座城市单独一张 sheet，按介数降序
+    for city in CITIES:
+        bc_dict = city_bc_dict[city]
+        data    = city_json[city]
+        rows = []
+        for node in data.values():
+            nid = node['id']
+            bv  = bc_dict.get(nid, 0.0)
+            rows.append({
+                '节点ID'  : nid,
+                'X坐标'   : round(node['position'][0], 4),
+                'Y坐标'   : round(node['position'][1], 4),
+                '度数'    : node['degree'],
+                '介数中心性': round(bv, 8),
+            })
+        df_city = pd.DataFrame(rows).sort_values('介数中心性', ascending=False)
+        df_city.insert(0, '排名', range(1, len(df_city) + 1))
+        df_city.to_excel(writer, sheet_name=city, index=False)
+        print(f'  Sheet [{city}] 已写入 {len(df_city)} 行')
 
 print(f'\nExcel 已保存: betweenness.xlsx')
 print('\n── 汇总 ──')
