@@ -155,11 +155,11 @@ def main():
 
     # ══════════════════════════════════════════════════════════════
     # 1. P(q) 曲线对比（原生 LCC 健壮性指标）
+    #    CABS 只用面向 LCC 优化的版本 (new_algorithm_origin.py)
     # ══════════════════════════════════════════════════════════════
     pq_csvs = [
         os.path.join(res_dir, "Q3_Baseline_Attacks_Data_IG_Official.csv"),
         os.path.join(res_dir, "Q3_Advanced_Attacks_Data_IG_Official.csv"),
-        os.path.join(res_dir, "Q3_CABS_BeamSearch_Data_Pq.csv"),
         os.path.join(res_dir, "Q3_CABS_LCC_Data_Pq.csv"),
     ]
     pdf_pq = os.path.join(res_dir, "Q3_All_Attacks_Pq.pdf")
@@ -168,57 +168,170 @@ def main():
 
     # ══════════════════════════════════════════════════════════════
     # 2. Q_bc(f) 曲线对比（双连通核指标）
+    #    CABS 只用面向 Q_bc 优化的版本 (new_algorithm.py)
     # ══════════════════════════════════════════════════════════════
     qbc_csvs = [
         os.path.join(res_dir, "Q3_Baseline_Attacks_Data_IG_Teammate.csv"),
         os.path.join(res_dir, "Q3_Advanced_Attacks_Data_IG_Teammate.csv"),
         os.path.join(res_dir, "Q3_CABS_BeamSearch_Data_Qbc.csv"),
-        os.path.join(res_dir, "Q3_CABS_LCC_Data_Qbc.csv"),
     ]
     pdf_qbc = os.path.join(res_dir, "Q3_All_Attacks_Qbc.pdf")
     print("\n[2] 绘制 Q_bc(f) 曲线对比 ...")
     plot_combined_strategies(qbc_csvs, "Q_bc_Teammate", pdf_qbc, "$Q_{bc}(f)$")
 
     # ══════════════════════════════════════════════════════════════
-    # 3. 汇总 R 值排名表
+    # 3. 综合分析：所有策略 × 两个指标 R_lcc & R_Qbc + Speedup
     # ══════════════════════════════════════════════════════════════
-    print("\n[3] 汇总各策略 R 值排名 ...")
-
-    all_csvs_pq = pq_csvs
-    dfs = [pd.read_csv(cp) for cp in all_csvs_pq if os.path.exists(cp)]
-    if dfs:
-        df_all = pd.concat(dfs, ignore_index=True)
-        df_all = df_all.drop_duplicates(subset=["City", "Strategy", "q"], keep="first")
-
-        rows = []
-        for (city, strat), g in df_all.groupby(["City", "Strategy"]):
-            g = g.sort_values("q")
-            try:
-                R = np.trapezoid(g["P_q_Official"], g["q"])
-            except AttributeError:
-                R = np.trapz(g["P_q_Official"], g["q"])
-            rows.append({"City": city, "Strategy": strat, "R_Pq": round(R, 6)})
-
-        df_rank = pd.DataFrame(rows)
-
-        # 每个城市找最优策略
-        best = df_rank.loc[df_rank.groupby("City")["R_Pq"].idxmin()]
-        print("\n  各城市最优攻击策略（R_Pq 最小 = 攻击最有效）：")
-        print(best.to_string(index=False))
-
-        # 按最优策略的 R_Pq 排名城市
-        best_sorted = best.sort_values("R_Pq", ascending=False)
-        print("\n  城市健壮性排名（R_Pq 最大 = 最难瓦解）：")
-        print(best_sorted.to_string(index=False))
-
-        # 保存完整排名表
-        rank_csv = os.path.join(res_dir, "Q3_All_Strategies_R_Ranking.csv")
-        pivot = df_rank.pivot(index="City", columns="Strategy", values="R_Pq")
-        pivot.to_csv(rank_csv, encoding="utf-8-sig")
-        print(f"\n  完整排名表已保存: {rank_csv}")
 
     print("\n" + "=" * 64)
-    print("  绘图完成！")
+    print("  [3] 综合 R 值排名 + Speedup 分析（R_lcc & R_Qbc）")
+    print("=" * 64)
+
+    def safe_trapz(y, x):
+        try:
+            return float(np.trapezoid(y, x))
+        except AttributeError:
+            return float(np.trapz(y, x))
+
+    def load_and_integrate(csv_list, metric_col):
+        """加载多个 CSV 并计算每 (City, Strategy) 的 R 值。"""
+        dfs_local = [pd.read_csv(cp) for cp in csv_list if os.path.exists(cp)]
+        if not dfs_local:
+            return pd.DataFrame()
+        df = pd.concat(dfs_local, ignore_index=True)
+        df = df.drop_duplicates(subset=["City", "Strategy", "q"], keep="first")
+        rows = []
+        for (city, strat), g in df.groupby(["City", "Strategy"]):
+            g = g.sort_values("q")
+            R = safe_trapz(g[metric_col], g["q"])
+            rows.append({"City": city, "Strategy": strat, "R": R})
+        return pd.DataFrame(rows)
+
+    # ---- 加载所有 P_q 数据（所有策略都有 P_q）----
+    all_pq_csvs = [
+        os.path.join(res_dir, "Q3_Baseline_Attacks_Data_IG_Official.csv"),
+        os.path.join(res_dir, "Q3_Advanced_Attacks_Data_IG_Official.csv"),
+        os.path.join(res_dir, "Q3_CABS_BeamSearch_Data_Pq.csv"),
+        os.path.join(res_dir, "Q3_CABS_LCC_Data_Pq.csv"),
+    ]
+    df_rlcc = load_and_integrate(all_pq_csvs, "P_q_Official")
+    if not df_rlcc.empty:
+        df_rlcc = df_rlcc.rename(columns={"R": "R_lcc"})
+
+    # ---- 加载所有 Q_bc 数据（所有策略都有 Q_bc）----
+    all_qbc_csvs = [
+        os.path.join(res_dir, "Q3_Baseline_Attacks_Data_IG_Teammate.csv"),
+        os.path.join(res_dir, "Q3_Advanced_Attacks_Data_IG_Teammate.csv"),
+        os.path.join(res_dir, "Q3_CABS_BeamSearch_Data_Qbc.csv"),
+        os.path.join(res_dir, "Q3_CABS_LCC_Data_Qbc.csv"),
+    ]
+    df_rqbc = load_and_integrate(all_qbc_csvs, "Q_bc_Teammate")
+    if not df_rqbc.empty:
+        df_rqbc = df_rqbc.rename(columns={"R": "R_Qbc"})
+
+    # ---- 合并两个指标到同一张表 ----
+    if not df_rlcc.empty and not df_rqbc.empty:
+        df_merged = df_rlcc.merge(df_rqbc, on=["City", "Strategy"], how="outer")
+    elif not df_rlcc.empty:
+        df_merged = df_rlcc.copy()
+    elif not df_rqbc.empty:
+        df_merged = df_rqbc.copy()
+    else:
+        print("  [错误] 无可用数据文件。")
+        return
+
+    # ---- 策略列排序 ----
+    known_order = [
+        "Degree", "Betweenness", "Closeness",
+        "CI_Radius2", "CoreHD",
+        "CABS_W3_K30_B5", "CABS_LCC_W3_K30_B5",
+    ]
+
+    # ---- 打印完整 R 值表 ----
+    for metric in ["R_lcc", "R_Qbc"]:
+        if metric not in df_merged.columns:
+            continue
+        print(f"\n  ┌───────────────────────────────────────────────────┐")
+        print(f"  │  {metric} 各策略 R 值（越小 = 攻击越有效）          │")
+        print(f"  └───────────────────────────────────────────────────┘")
+        pivot = df_merged.pivot(index="City", columns="Strategy", values=metric)
+        col_order = [c for c in known_order if c in pivot.columns]
+        col_order += [c for c in pivot.columns if c not in col_order]
+        pivot = pivot[col_order]
+        print(pivot.round(4).to_string())
+
+        # 保存
+        csv_path = os.path.join(res_dir, f"Q3_All_Strategies_{metric}_Ranking.csv")
+        pivot.to_csv(csv_path, encoding="utf-8-sig")
+
+    # ---- Speedup 计算：CABS vs 最优 baseline/advanced ----
+    is_cabs = df_merged["Strategy"].str.contains("CABS", case=False)
+    df_cabs = df_merged[is_cabs].copy()
+    df_other = df_merged[~is_cabs].copy()
+
+    if df_cabs.empty or df_other.empty:
+        print("\n  [!] CABS 或 baseline 数据缺失，跳过 Speedup 计算。")
+    else:
+        for metric in ["R_lcc", "R_Qbc"]:
+            if metric not in df_other.columns:
+                continue
+
+            # 跳过 NaN
+            df_other_valid = df_other.dropna(subset=[metric])
+            df_cabs_valid = df_cabs.dropna(subset=[metric])
+            if df_other_valid.empty or df_cabs_valid.empty:
+                continue
+
+            # 每城市非 CABS 中的最优 R
+            best_other = df_other_valid.groupby("City").apply(
+                lambda g: g.loc[g[metric].idxmin()]
+            )[["City", "Strategy", metric]].reset_index(drop=True)
+            best_other.columns = ["City", "Best_Other", f"{metric}_other"]
+
+            # 合并 CABS
+            df_sp = df_cabs_valid[["City", "Strategy", metric]].merge(
+                best_other, on="City"
+            )
+            df_sp["Speedup"] = df_sp[f"{metric}_other"] / df_sp[metric]
+            df_sp["Improv%"] = (
+                (df_sp[f"{metric}_other"] - df_sp[metric])
+                / df_sp[f"{metric}_other"] * 100
+            )
+
+            print(f"\n  ┌──────────────────────────────────────────────────────────┐")
+            print(f"  │  CABS vs 最优 Baseline/Advanced — Speedup ({metric})       │")
+            print(f"  └──────────────────────────────────────────────────────────┘")
+            print(f"  Speedup = R_best_other / R_CABS  (>1 表示 CABS 更优)")
+            print(f"  Improv% = (R_best_other - R_CABS) / R_best_other × 100%\n")
+
+            df_disp = pd.DataFrame({
+                "City":        df_sp["City"],
+                "Best_Other":  df_sp["Best_Other"],
+                f"{metric}_other": df_sp[f"{metric}_other"].round(4),
+                "CABS":        df_sp["Strategy"],
+                f"{metric}_CABS":  df_sp[metric].round(4),
+                "Speedup":     df_sp["Speedup"].round(2),
+                "Improv%":     df_sp["Improv%"].round(1),
+            }).sort_values("City")
+            print(df_disp.to_string(index=False))
+
+            avg_sp = df_sp["Speedup"].mean()
+            avg_im = df_sp["Improv%"].mean()
+            print(f"\n  >>> 平均 Speedup = {avg_sp:.2f}x，"
+                  f"平均改进率 = {avg_im:.1f}%")
+
+    # ---- 城市健壮性排名（按全局最优 R）----
+    for metric in ["R_lcc", "R_Qbc"]:
+        if metric not in df_merged.columns:
+            continue
+        all_best = df_merged.dropna(subset=[metric]).groupby("City")[metric].min()
+        all_best = all_best.reset_index().sort_values(metric, ascending=False)
+        print(f"\n  城市健壮性排名（{metric}，R 最大 = 最难瓦解）：")
+        for _, row in all_best.iterrows():
+            print(f"    {row['City']:>12s}  {metric} = {row[metric]:.4f}")
+
+    print("\n" + "=" * 64)
+    print("  全部完成！")
     print("=" * 64)
 
 
