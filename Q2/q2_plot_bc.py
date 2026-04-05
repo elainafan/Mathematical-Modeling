@@ -6,7 +6,7 @@ q2_plot_bc.py
 生成各城市健壮性曲线图并汇总积分摘要。
 
 数据来源：Q2/Q2_Results/bc/Q2_Raw_Simulation_Data_BC.csv
-输出目标：Q2/Q2_Results/bc/<City>_Robustness_Random_BC.png
+输出目标：Q2/Q2_Results/bc/<City>_Robustness_Random_BC.pdf
           Q2/Q2_Results/bc/Q2_Robustness_Summary_BC.csv
 """
 
@@ -86,7 +86,7 @@ def main():
         plt.grid(True, linestyle="--", alpha=0.7)
         plt.legend()
 
-        plot_path = os.path.join(results_dir, f"{city}_Robustness_Random_BC.png")
+        plot_path = os.path.join(results_dir, f"{city}_Robustness_Random_BC.pdf")
         plt.savefig(plot_path, dpi=300)
         plt.close()
         print(f"[{city}] -> {plot_path}")
