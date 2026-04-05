@@ -242,7 +242,6 @@ def plot_flow(
 
     plt.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans']
     plt.rcParams['axes.unicode_minus'] = False
-    ax.set_title(f'{city} 交通网络流量热力图', fontsize=13, pad=10, color='white')
 
     plt.tight_layout()
 
