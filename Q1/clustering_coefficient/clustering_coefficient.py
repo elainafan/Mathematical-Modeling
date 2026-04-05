@@ -91,20 +91,31 @@ for path, city in zip(JSON_FILES, CITIES):
 
 # ════════════════════════════════════════════════════════════
 # 图1：各城市局部聚类系数分布直方图（2×4）
+# 非零节点绘直方图；在图例中标注零值节点数与比例
 # ════════════════════════════════════════════════════════════
 fig, axes = plt.subplots(2, 4, figsize=(18, 8))
 fig.suptitle('各城市节点局部聚类系数分布', fontsize=16, fontweight='bold', y=1.01)
 
 for ax, city, color in zip(axes.flat, CITIES, COLORS):
-    values = list(city_cc[city].values())
+    values  = list(city_cc[city].values())
+    total   = len(values)
     nonzero = [v for v in values if v > 0]
-    avg = np.mean(values)
+    n_zero  = total - len(nonzero)
+    r_zero  = n_zero / total
+    avg     = np.mean(values)
 
     ax.hist(nonzero, bins=30, color=color, alpha=0.8, edgecolor='white', linewidth=0.4)
     ax.axvline(avg, color='black', linestyle='--', linewidth=1.2,
                label=f'均值 {avg:.4f}')
+    # 在图例旁单独添加零值注释文本框
+    ax.text(0.98, 0.95,
+            f'C(v)=0\n节点数: {n_zero}\n比例: {r_zero:.1%}',
+            transform=ax.transAxes,
+            fontsize=7.5, va='top', ha='right',
+            bbox=dict(boxstyle='round,pad=0.3', facecolor='#F5F5F5',
+                      edgecolor='#BDBDBD', alpha=0.9))
     ax.set_title(city, fontsize=11, fontweight='bold')
-    ax.set_xlabel('聚类系数 C(v)', fontsize=9)
+    ax.set_xlabel('聚类系数 C(v)（仅非零节点）', fontsize=9)
     ax.set_ylabel('节点数', fontsize=9)
     ax.legend(fontsize=8)
     ax.grid(axis='y', alpha=0.3)
@@ -113,31 +124,6 @@ plt.tight_layout()
 fig.savefig(os.path.join(OUT_DIR, 'clustering_hist.png'), dpi=150, bbox_inches='tight')
 plt.close()
 print('\n图1 已保存: clustering_hist.png')
-
-
-# ════════════════════════════════════════════════════════════
-# 图2：8城市平均聚类系数横向对比柱状图
-# ════════════════════════════════════════════════════════════
-df_sum = pd.DataFrame(summary_rows).set_index('城市')
-
-fig2, ax2 = plt.subplots(figsize=(10, 5))
-bars = ax2.bar(df_sum.index, df_sum['平均聚类系数'],
-               color=COLORS, alpha=0.85, edgecolor='white', linewidth=0.5)
-ax2.errorbar(df_sum.index, df_sum['平均聚类系数'],
-             yerr=df_sum['标准差'], fmt='none', color='black',
-             capsize=4, linewidth=1.2, label='±1 标准差')
-for bar, val in zip(bars, df_sum['平均聚类系数']):
-    ax2.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.001,
-             f'{val:.4f}', ha='center', va='bottom', fontsize=9)
-ax2.set_title('各城市平均聚类系数对比', fontsize=14, fontweight='bold')
-ax2.set_xlabel('城市', fontsize=11)
-ax2.set_ylabel('平均聚类系数', fontsize=11)
-ax2.legend(fontsize=10)
-ax2.grid(axis='y', alpha=0.3)
-plt.tight_layout()
-fig2.savefig(os.path.join(OUT_DIR, 'clustering_compare.png'), dpi=150, bbox_inches='tight')
-plt.close()
-print('图2 已保存: clustering_compare.png')
 
 
 # ════════════════════════════════════════════════════════════
