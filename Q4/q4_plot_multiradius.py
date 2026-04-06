@@ -19,7 +19,11 @@ def plot_pq_curves_by_method(method, radii, cities, results_dir):
     for idx, city in enumerate(cities):
         ax = axes[idx]
         for r_idx, r in enumerate(radii):
-            csv_path = os.path.join(results_dir, f"Q4_Simulation_{city}_r{int(r)}m.csv")
+            if method == "RCABS-BE":
+                csv_path = os.path.join(results_dir, f"Q4_RCABS_Curve_{city}_r{int(r)}m.csv")
+            else:
+                csv_path = os.path.join(results_dir, f"Q4_Simulation_{city}_r{int(r)}m.csv")
+
             if os.path.exists(csv_path):
                 df = pd.read_csv(csv_path)
                 df_method = df[df["Method"] == method]
@@ -59,11 +63,20 @@ def plot_r_vs_radius_by_method(method, radii, cities, results_dir):
     # 首先读取所有的 summary 文件
     summary_dfs = {}
     for r in radii:
-        sum_path = os.path.join(results_dir, f"Q4_Robustness_Summary_r{int(r)}m.csv")
+        if method == "RCABS-BE":
+            sum_path = os.path.join(results_dir, f"Q4_RCABS_Summary_r{int(r)}m.csv")
+        else:
+            sum_path = os.path.join(results_dir, f"Q4_Robustness_Summary_r{int(r)}m.csv")
+
         if os.path.exists(sum_path):
             summary_dfs[r] = pd.read_csv(sum_path).set_index("City")
 
-    col_name = "R_S_Degree" if method == "S-Degree" else "R_S_CoreHD"
+    if method == "S-Degree":
+        col_name = "R_S_Degree"
+    elif method == "S-CoreHD":
+        col_name = "R_S_CoreHD"
+    elif method == "RCABS-BE":
+        col_name = "R_Pq_LCC"  # Or R_Qbc if preferred, but earlier the user asked for "P(q)" corresponding robust integral. Let's use R_Pq_LCC.
 
     for idx, city in enumerate(cities):
         ax = axes[idx]
@@ -79,7 +92,15 @@ def plot_r_vs_radius_by_method(method, radii, cities, results_dir):
                     plot_R_val.append(val)
 
         if plot_r:
-            line_color = "crimson" if method == "S-CoreHD" else "royalblue"
+            if method == "S-CoreHD":
+                line_color = "crimson"
+            elif method == "S-Degree":
+                line_color = "royalblue"
+            elif method == "RCABS-BE":
+                line_color = "darkorange"
+            else:
+                line_color = "purple"
+
             ax.plot(
                 plot_r, plot_R_val, marker="o", color=line_color, linewidth=3.0, markersize=8, markeredgecolor="black"
             )
@@ -109,6 +130,9 @@ if __name__ == "__main__":
     if not os.path.exists(results_dir):
         print(f"找不到结果文件夹 {results_dir}")
     else:
-        for method in ["S-Degree", "S-CoreHD"]:
-            plot_pq_curves_by_method(method, radii, cities, results_dir)
-            plot_r_vs_radius_by_method(method, radii, cities, results_dir)
+        for method in ["S-Degree", "S-CoreHD", "RCABS-BE"]:
+            try:
+                plot_pq_curves_by_method(method, radii, cities, results_dir)
+                plot_r_vs_radius_by_method(method, radii, cities, results_dir)
+            except Exception as e:
+                print(f"Failed handling method {method}: {e}")
