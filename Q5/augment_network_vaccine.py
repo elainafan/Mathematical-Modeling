@@ -384,8 +384,14 @@ def main():
     os.makedirs(out_dir, exist_ok=True)
 
     CITIES = [
-        #"Chengdu", "Dalian", "Dongguan", "Harbin",
-        "Qingdao", "Quanzhou", #"Shenyang", "Zhengzhou",
+        #"Chengdu", 
+        # #"Dalian", 
+        # "Dongguan", 
+        # "Harbin",
+        #"Qingdao", 
+        # "Quanzhou", 
+        # "Shenyang", 
+        "Zhengzhou",
     ]
 
     # ── 超参 ──
@@ -397,9 +403,9 @@ def main():
         "warmup_frac": 0.05,
     }
 
-    BATCH_SIZE = 40
+    BATCH_SIZE = 100
     MAX_BATCHES = 20
-    TOP_FRAC = 0.05
+    TOP_FRAC = 0.8
 
     # ── 加载 Q3 LCC 基线 ──
     lcc_summary_path = os.path.join(q3_dir, "Q3_CABS_LCC_Summary.csv")

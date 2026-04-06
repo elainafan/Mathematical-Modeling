@@ -383,8 +383,7 @@ def main():
     out_dir = os.path.join(base_dir, "Q5", "results")
     os.makedirs(out_dir, exist_ok=True)
 
-    CITIES = ["Quanzhou"
-    ]
+    CITIES = ["Chengdu"]
 
     # ── 超参 ──
     CABS_PARAMS = {
@@ -395,7 +394,7 @@ def main():
         "warmup_frac": 0.05,
     }
 
-    BATCH_SIZE = 20
+    BATCH_SIZE = 1000
     MAX_BATCHES = 20
     TOP_FRAC = 0.8
 
