@@ -52,6 +52,82 @@ def plot_pq_curves_by_method(method, radii, cities, results_dir):
     print(f"✅ 生成 P(q) 衰减对比图: {out_pdf}")
 
 
+def plot_combined_r_vs_radius(methods, radii, cities, results_dir):
+    """
+    画图3：将不同方法的 R 积分折线合并在同一张图里。
+    横轴为半径 Radius，纵轴为积分 R。
+    8个城市 2x4 分布，每个子图内有多条线（每种 method 一条）。
+    """
+    fig, axes = plt.subplots(2, 4, figsize=(24, 12))
+    axes = axes.flatten()
+
+    for idx, city in enumerate(cities):
+        ax = axes[idx]
+
+        for method in methods:
+            # 读取 summary
+            plot_r = []
+            plot_R_val = []
+
+            for r in radii:
+                if method == "RCABS-BE":
+                    sum_path = os.path.join(results_dir, f"Q4_RCABS_Summary_r{int(r)}m.csv")
+                else:
+                    sum_path = os.path.join(results_dir, f"Q4_Robustness_Summary_r{int(r)}m.csv")
+
+                if os.path.exists(sum_path):
+                    df_sum = pd.read_csv(sum_path).set_index("City")
+
+                    if method == "S-Degree":
+                        col_name = "R_S_Degree"
+                    elif method == "S-CoreHD":
+                        col_name = "R_S_CoreHD"
+                    elif method == "RCABS-BE":
+                        col_name = "R_Pq_LCC"
+
+                    if city in df_sum.index:
+                        val = df_sum.loc[city, col_name]
+                        if not pd.isna(val):
+                            plot_r.append(r)
+                            plot_R_val.append(val)
+
+            if plot_r:
+                if method == "S-CoreHD":
+                    line_color = "crimson"
+                elif method == "S-Degree":
+                    line_color = "royalblue"
+                elif method == "RCABS-BE":
+                    line_color = "darkorange"
+                else:
+                    line_color = "purple"
+
+                ax.plot(
+                    plot_r,
+                    plot_R_val,
+                    marker="o",
+                    color=line_color,
+                    linewidth=3.0,
+                    markersize=8,
+                    markeredgecolor="black",
+                    label=method,
+                )
+
+        ax.set_title(f"{city}", fontsize=16, fontweight="bold")
+        ax.set_xlabel("Damage Radius $r$ (meters)", fontsize=14)
+        ax.set_ylabel("Robustness Integral ($R$)", fontsize=14)
+
+        ax.set_xticks(radii)
+        ax.tick_params(axis="x", rotation=45)
+        ax.grid(True, linestyle="--", alpha=0.7)
+        ax.legend(fontsize=11)
+
+    plt.tight_layout()
+    out_pdf = os.path.join(results_dir, f"Q4_MultiRadius_RIntegral_Combined.pdf")
+    plt.savefig(out_pdf, dpi=300)
+    plt.close()
+    print(f"✅ 生成 R 积分多策略合并对比图: {out_pdf}")
+
+
 def plot_r_vs_radius_by_method(method, radii, cities, results_dir):
     """
     画图2：针对某一特定方法，绘制不同波及半径下鲁棒性积分 R 的折线趋势图。
@@ -130,9 +206,16 @@ if __name__ == "__main__":
     if not os.path.exists(results_dir):
         print(f"找不到结果文件夹 {results_dir}")
     else:
-        for method in ["S-Degree", "S-CoreHD", "RCABS-BE"]:
+        methods = ["S-Degree", "S-CoreHD", "RCABS-BE"]
+        for method in methods:
             try:
                 plot_pq_curves_by_method(method, radii, cities, results_dir)
                 plot_r_vs_radius_by_method(method, radii, cities, results_dir)
             except Exception as e:
                 print(f"Failed handling method {method}: {e}")
+
+        # 将 R 积分随着半径增加的这三张图合并到一张图中
+        try:
+            plot_combined_r_vs_radius(methods, radii, cities, results_dir)
+        except Exception as e:
+            print(f"Failed handling combined plot: {e}")
