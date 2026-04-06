@@ -403,7 +403,7 @@ def main():
         "warmup_frac": 0.05,
     }
 
-    BATCH_SIZE = 100
+    BATCH_SIZE = 20
     MAX_BATCHES = 20
     TOP_FRAC = 0.8
 
