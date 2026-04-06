@@ -18,7 +18,6 @@ CITIES = [
     "Qingdao", "Quanzhou", "Shenyang", "Zhengzhou",
 ]
 
-
 def generate_distinct_colors(n: int):
     """
     生成 n 种视觉可区分的颜色。
